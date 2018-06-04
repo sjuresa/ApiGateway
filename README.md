@@ -6,7 +6,7 @@
 
 To build you can just :
 
-* `mvn clean install` does not run any test
+* `mvn clean package` does not run any test
 
 ## Running
 
@@ -21,7 +21,7 @@ Package the samples with WildFly Swarm using the following Maven command :
 
 * `mvn clean package -Pwildfly-swarm`
 
-This will create an executable JAR under the `target` directory. Just execute it with `java -jar target/microprofile-sample-canonical-swarm.jar` and invoke the microservice at http://localhost:8081/msTopCDs 
+This will create an executable JAR under the `target` directory. Just execute it with `java -jar target/ApiGateway-1.0-SNAPSHOT-swarm.jar` and invoke the microservice at http://localhost:8080/user 
 
 ## Registration
 
@@ -30,7 +30,7 @@ This will create an executable JAR under the `target` directory. Just execute it
 
 Get registration data for registered RA user. Response 200 if user has RA role, else 404 Not Found.
 
-####Post Registration
+#### Post Registration
 
 Post registration data for new / edit user. Response 201 if user has RA role, else 403 - Forbidden. If user with attribute email allready exsists, return 409 - Conflict.
 

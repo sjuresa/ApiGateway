@@ -2,6 +2,27 @@
 
 ## Introduction
 
+## Building
+
+To build you can just :
+
+* `mvn clean install` does not run any test
+
+## Running
+
+You can package a WAR file and deploy it on your application server.
+ 
+
+But you can also use other forms of packaging to execute this services
+
+### WildFly Swarm
+
+Package the samples with WildFly Swarm using the following Maven command :
+
+* `mvn clean package -Pwildfly-swarm`
+
+This will create an executable JAR under the `target` directory. Just execute it with `java -jar target/microprofile-sample-canonical-swarm.jar` and invoke the microservice at http://localhost:8081/msTopCDs 
+
 ## Registration
 
 

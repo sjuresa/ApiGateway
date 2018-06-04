@@ -26,6 +26,8 @@ import javax.json.*;
 import javax.security.cert.X509Certificate;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -39,7 +41,7 @@ import java.util.Random;
 import java.util.logging.Logger;
 
 @Path("/user")
-@Api(description = "Top CDs Endpoint")
+@Api(description = "Api Gateway")
 @RequestScoped
 public class User {
 
@@ -49,6 +51,12 @@ public class User {
 
     @Context
     HttpServletRequest request;
+
+    public interface MusicPlaylistService {
+        @POST
+        @Path("/registration")
+        List<String> getPlaylistNames();
+    }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
@@ -66,27 +74,13 @@ public class User {
     @Produces(MediaType.APPLICATION_JSON)
     public Response user(@FormParam("attributes") String attributes) {
         JsonArray jsonArray = null;
-        String selfRegistrationDBApi = "http://private-amnesiac-a8e08a-dbapi5.apiary-proxy.com/self-registration";
-        String registrationDBApi = "http://private-amnesiac-a8e08a-dbapi5.apiary-proxy.com/registration";
+        Response response = null;
+        String registrationDBApi = "http://private-a8e08a-dbapi5.apiary-mock.com";
 
         logger.info("request: "+ request.toString() );
         logger.info("attributes: "+ attributes );
 
-        String casAuth = casAuth(request);
-        if(casAuth != null){
-
-            //TODO: call DB API and get user + roles, check if role is ok. If yes, call api db - registration api
-        }
-
-        String certAuth = certAuth(request);
-        if(certAuth != null){
-            //TODO: call DB API and get user + roles, check if role is ok. If yes, call api db - registration api
-        }
-
-        if(casAuth == null && certAuth == null){
-            //TODO: no auth user, call api db - self-registration
-        }
-
+        //check if attributes JSON
         try{
             JsonReader jsonReader = Json.createReader(new StringReader(attributes));
             jsonArray = jsonReader.readArray();
@@ -96,7 +90,27 @@ public class User {
             logger.throwing("User", "user", ex);
         }
 
-        return prepareResponse(jsonArray, 200, "registration", logger);
+        String casAuth = casAuth(request);
+        if(casAuth != null){
+            response = ClientBuilder.newClient().target(registrationDBApi).path("/registration").request().buildPost(Entity.json(attributes)).invoke();
+            //TODO: call DB API and get user + roles, check if role is ok. If yes, call api db - registration api
+        }
+
+        String certAuth = certAuth(request);
+        if(certAuth != null){
+            //TODO: call DB API and get user + roles, check if role is ok. If yes, call api db - registration api
+            response = ClientBuilder.newClient().target(registrationDBApi).path("/registration").request().buildPost(Entity.json(attributes)).invoke();
+
+        }
+
+        if(casAuth == null && certAuth == null){
+            response = ClientBuilder.newClient().target(registrationDBApi).path("/self-registration").request().buildPost(Entity.json(attributes)).invoke();
+
+        }
+        logger.info("STATUS FROM CALL: " + response.getStatus());
+
+
+        return prepareResponse("", response.getStatus(), "registration", logger);
     }
 
     private String casAuth(HttpServletRequest request){

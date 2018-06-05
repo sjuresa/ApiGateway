@@ -18,9 +18,6 @@ import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
 import java.util.logging.Logger;
 
 @Path("/user")
@@ -35,65 +32,52 @@ public class User {
     @Context
     HttpServletRequest request;
 
-    public interface MusicPlaylistService {
-        @POST
-        @Path("/registration")
-        List<String> getPlaylistNames();
-    }
+    //TODO: how config / settings for microprofile: https://github.com/eclipse/microprofile-config
+    private String registrationDBApi = "http://private-a8e08a-dbapi5.apiary-mock.com";
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public String getTopCDs() {
-
-        JsonArrayBuilder array = Json.createArrayBuilder();
-        List<Integer> randomCDs = getRandomNumbers();
-        for (Integer randomCD : randomCDs) {
-            array.add(Json.createObjectBuilder().add("id", randomCD));
+    public Response getUserAttributes() {
+        String registrationUser = getRegistrationUser(request);
+        if(registrationUser == null){
+            return prepareResponse(null, 403, "getUserAttributes called without authorization", logger);
         }
-        return array.build().toString();
+        Response response = ClientBuilder.newClient().target(registrationDBApi).path("/registration").request().header("registration_user", registrationUser).get();
+        return prepareResponse(response.getEntity(), response.getStatus(), "getUserAttributes", logger);
     }
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
-    public Response user(@FormParam("attributes") String attributes) {
-        JsonArray jsonArray = null;
-        Response response = null;
-        String registrationDBApi = "http://private-a8e08a-dbapi5.apiary-mock.com";
-
-        logger.info("request: "+ request.toString() );
-        logger.info("attributes: "+ attributes );
-
-        //check if attributes JSON
+    public Response postUser(@FormParam("attributes") String attributes) {
         try{
             JsonReader jsonReader = Json.createReader(new StringReader(attributes));
-            jsonArray = jsonReader.readArray();
+            jsonReader.readArray();
             jsonReader.close();
         } catch (Exception ex) {
-            logger.severe("User attributes input not valid JSON structure: " + attributes);
-            logger.throwing("User", "user", ex);
+            logger.severe("postUser attributes input not valid JSON structure: " + attributes);
+            return prepareResponse(null, 400, "postUser attributes not valid JSON!", logger);
         }
 
+        String registrationUser = getRegistrationUser(request);
+        if(registrationUser == null){
+            return prepareResponse(null, 403, "Post User called without authorization", logger);
+        }
+
+        Response response = ClientBuilder.newClient().target(registrationDBApi).path("/registration").request().header("registration_user", registrationUser).buildPost(Entity.json(attributes)).invoke();
+        return prepareResponse(null, response.getStatus(), "postUser", logger);
+    }
+
+    private String getRegistrationUser(HttpServletRequest request){
         String casAuth = casAuth(request);
         if(casAuth != null){
-            response = ClientBuilder.newClient().target(registrationDBApi).path("/registration").request().buildPost(Entity.json(attributes)).invoke();
-            //TODO: call DB API and get user + roles, check if role is ok. If yes, call api db - registration api
+            return casAuth;
         }
 
         String certAuth = certAuth(request);
         if(certAuth != null){
-            //TODO: call DB API and get user + roles, check if role is ok. If yes, call api db - registration api
-            response = ClientBuilder.newClient().target(registrationDBApi).path("/registration").request().buildPost(Entity.json(attributes)).invoke();
-
+            return certAuth;
         }
-
-        if(casAuth == null && certAuth == null){
-            response = ClientBuilder.newClient().target(registrationDBApi).path("/self-registration").request().buildPost(Entity.json(attributes)).invoke();
-
-        }
-        logger.info("STATUS FROM CALL: " + response.getStatus());
-
-
-        return prepareResponse("", response.getStatus(), "registration", logger);
+        return null;
     }
 
     private String casAuth(HttpServletRequest request){
@@ -119,7 +103,7 @@ public class User {
             X509Certificate[] x509Certificates = (X509Certificate[]) request.getAttribute("javax.servlet.request.X509Certificate");
             if(x509Certificates.length > 0) {
                 String userCertThumbPrint = getThumbPrint(x509Certificates[x509Certificates.length - 1].getEncoded());
-                if(userCertThumbPrint != null && !userCertThumbPrint.isEmpty()){
+                if(!userCertThumbPrint.isEmpty()){
                     logger.info("User with cert thumbPrint: "+ userCertThumbPrint);
                     return userCertThumbPrint;
                 }
@@ -133,7 +117,11 @@ public class User {
 
     private static Response prepareResponse(Object entity, int code, String logMsg, Logger log){
         if(logMsg!=null && !logMsg.isEmpty()){
-            log.info(logMsg);
+            if (code == 200 || code == 201) {
+                log.info(logMsg);
+            } else {
+                log.severe(logMsg);
+            }
         }
         Response.ResponseBuilder response = Response.ok().header("X-Content-Type-Option", "nosniff");
         response.entity(entity);
@@ -141,37 +129,23 @@ public class User {
         return response.build();
     }
 
-    public static String getThumbPrint(byte[] der) throws NoSuchAlgorithmException {
+    private static String getThumbPrint(byte[] der) throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-1");
         md.update(der);
         byte[] digest = md.digest();
         return hexify(digest);
     }
 
-    public static String hexify (byte bytes[]) {
+    private static String hexify (byte bytes[]) {
         char[] hexDigits = {'0', '1', '2', '3', '4', '5', '6', '7',
                 '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
 
-        StringBuffer buf = new StringBuffer(bytes.length * 2);
+        StringBuilder buf = new StringBuilder(bytes.length * 2);
 
-        for (int i = 0; i < bytes.length; ++i) {
-            buf.append(hexDigits[(bytes[i] & 0xf0) >> 4]);
-            buf.append(hexDigits[bytes[i] & 0x0f]);
+        for (byte aByte : bytes) {
+            buf.append(hexDigits[(aByte & 0xf0) >> 4]);
+            buf.append(hexDigits[aByte & 0x0f]);
         }
         return buf.toString();
-    }
-
-    private List<Integer> getRandomNumbers() {
-        List<Integer> randomCDs = new ArrayList<>();
-        Random r = new Random();
-        randomCDs.add(r.nextInt(100) + 1101);
-        randomCDs.add(r.nextInt(100) + 1101);
-        randomCDs.add(r.nextInt(100) + 1101);
-        randomCDs.add(r.nextInt(100) + 1101);
-        randomCDs.add(r.nextInt(100) + 1101);
-
-        logger.info("Top CDs are " + randomCDs);
-
-        return randomCDs;
     }
 }

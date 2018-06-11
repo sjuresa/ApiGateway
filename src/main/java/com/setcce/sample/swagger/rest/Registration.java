@@ -37,18 +37,18 @@ public class Registration {
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getRegistrationAttributes() {
+    public Response getRegistrationAttributes(@QueryParam("source") String source) {
         String registrationUser = getRegistrationUser(request);
         if(registrationUser == null){
             return prepareResponse(null, 403, "getUserAttributes called without authorization", logger);
         }
-        Response response = ClientBuilder.newClient().target(registrationDBApi).path("/registration").request().header("registration_user", registrationUser).get();
+        Response response = ClientBuilder.newClient().target(registrationDBApi).path("/registration").queryParam("source", source).request().header("registration_user", registrationUser).get();
         return prepareResponse(response.getEntity(), response.getStatus(), "getUserAttributes", logger);
     }
 
-    @POST
+    @POST @Path("/{raSource}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response postRegistration(@FormParam("attributes") String attributes) {
+    public Response postRegistration(@PathParam("raSource") String raSource, @FormParam("attributes") String attributes, @QueryParam("consent") String consent) {
         try{
             JsonReader jsonReader = Json.createReader(new StringReader(attributes));
             jsonReader.readObject();
@@ -63,7 +63,7 @@ public class Registration {
             return prepareResponse(null, 403, "Post Registration called without authorization", logger);
         }
 
-        Response response = ClientBuilder.newClient().target(registrationDBApi).path("/registration").request().header("registration_user", registrationUser).buildPost(Entity.json(attributes)).invoke();
+        Response response = ClientBuilder.newClient().target(registrationDBApi).path("/registration/").queryParam("consent", consent).request().header("registration_user", registrationUser).buildPost(Entity.json(attributes)).invoke();
         return prepareResponse(null, response.getStatus(), "postUser", logger);
     }
 
@@ -117,7 +117,7 @@ public class Registration {
 
     private static Response prepareResponse(Object entity, int code, String logMsg, Logger log){
         if(logMsg!=null && !logMsg.isEmpty()){
-            if (code == 200 || code == 201) {
+            if (code == 200 || code == 201 || code == 204) {
                 log.info(logMsg);
             } else {
                 log.severe(logMsg);

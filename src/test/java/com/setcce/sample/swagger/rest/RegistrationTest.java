@@ -25,7 +25,7 @@ import static org.junit.Assert.assertEquals;
 
 @RunWith(Arquillian.class)
 @RunAsClient
-public class UserTest {
+public class RegistrationTest {
     @ArquillianResource
     private URI baseURL;
     private Client client;
@@ -34,7 +34,7 @@ public class UserTest {
 @Deployment
     public static Archive<?> createDeployment() {
         File[] files = Maven.resolver().loadPomFromFile("pom.xml").importRuntimeDependencies().resolve().withTransitivity().asFile();
-        return ShrinkWrap.create(WebArchive.class).addClass(RestApplication.class).addClass(User.class)
+        return ShrinkWrap.create(WebArchive.class).addClass(RestApplication.class).addClass(Registration.class)
                 .addClass(ResourceProducer.class).addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml").addAsLibraries(files);
     }
 

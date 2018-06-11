@@ -20,10 +20,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.logging.Logger;
 
-@Path("/user")
+@Path("/registration")
 @Api(description = "Api Gateway")
 @RequestScoped
-public class User {
+public class Registration {
 
     @Inject
     @QLogger
@@ -32,12 +32,12 @@ public class User {
     @Context
     HttpServletRequest request;
 
-    //TODO: how config / settings for microprofile: https://github.com/eclipse/microprofile-config
+    //TODO: where do we read config from?
     private String registrationDBApi = "http://private-a8e08a-dbapi5.apiary-mock.com";
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getUserAttributes() {
+    public Response getRegistrationAttributes() {
         String registrationUser = getRegistrationUser(request);
         if(registrationUser == null){
             return prepareResponse(null, 403, "getUserAttributes called without authorization", logger);
@@ -48,10 +48,10 @@ public class User {
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
-    public Response postUser(@FormParam("attributes") String attributes) {
+    public Response postRegistration(@FormParam("attributes") String attributes) {
         try{
             JsonReader jsonReader = Json.createReader(new StringReader(attributes));
-            jsonReader.readArray();
+            jsonReader.readObject();
             jsonReader.close();
         } catch (Exception ex) {
             logger.severe("postUser attributes input not valid JSON structure: " + attributes);
@@ -60,7 +60,7 @@ public class User {
 
         String registrationUser = getRegistrationUser(request);
         if(registrationUser == null){
-            return prepareResponse(null, 403, "Post User called without authorization", logger);
+            return prepareResponse(null, 403, "Post Registration called without authorization", logger);
         }
 
         Response response = ClientBuilder.newClient().target(registrationDBApi).path("/registration").request().header("registration_user", registrationUser).buildPost(Entity.json(attributes)).invoke();
@@ -86,10 +86,10 @@ public class User {
             return null;
         }
         try {
-            logger.info("User with setccecas_external_id: "+ externalIdIso88591);
+            logger.info("Registration with setccecas_external_id: "+ externalIdIso88591);
             return new String(externalIdIso88591.getBytes("ISO-8859-1"), "UTF-8");
         } catch (UnsupportedEncodingException ex) {
-            logger.throwing("User", "casAuth", ex);
+            logger.throwing("Registration", "casAuth", ex);
             return null;
         }
     }
@@ -104,13 +104,13 @@ public class User {
             if(x509Certificates.length > 0) {
                 String userCertThumbPrint = getThumbPrint(x509Certificates[x509Certificates.length - 1].getEncoded());
                 if(!userCertThumbPrint.isEmpty()){
-                    logger.info("User with cert thumbPrint: "+ userCertThumbPrint);
+                    logger.info("Registration with cert thumbPrint: "+ userCertThumbPrint);
                     return userCertThumbPrint;
                 }
             }
             return null;
         } catch (Exception ex) {
-            logger.throwing("User", "casAuth", ex);
+            logger.throwing("Registration", "casAuth", ex);
             return null;
         }
     }
